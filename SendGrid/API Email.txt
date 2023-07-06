@@ -1,0 +1,116 @@
+PROCEDURE SendGrid_API()
+
+vContent		is Variant
+vResp			is Variant
+ErrTxt			is string
+
+apikey is string = "PUT_YOUR_SENDGRID_API_KEY_HERE"
+
+//	API Docs
+//	https://docs.sendgrid.com/api-reference/mail-send/mail-send
+
+ENdx is int = 1
+vContent.personalizations[1].to[ENdx].email		= "EmailMe@email.com"
+vContent.personalizations[1].to[ENdx].name		= "EmailName_"+ENdx
+//ENdx += 1
+//vContent.personalizations[1].to[ENdx].email		= "EmailMe@email.com"
+//vContent.personalizations[1].to[ENdx].name		= "EmailName_"+
+//ENdx += 1
+//vContent.personalizations[1].to[ENdx].email		= "EmailMe@email.com"
+//vContent.personalizations[1].to[ENdx].name		= "EmailName_"+ENdx
+//ENdx += 1
+//vContent.personalizations[1].to[ENdx].email		= "EmailMe@email.com"
+//vContent.personalizations[1].to[ENdx].name		= "EmailName_"+ENdx
+//ENdx += 1
+//vContent.personalizations[1].to[ENdx].email	  = "EmailMe@email.com"
+//vContent.personalizations[1].to[ENdx].name		= "EmailName_"+ENdx
+//ENdx += 1
+//vContent.personalizations[1].to[ENdx].email	  = "EmailMe@email.com"
+//vContent.personalizations[1].to[ENdx].name		= "EmailName_"+ENdx
+
+
+vContent.from.email							= "noreply@valideddomainhere.com"
+
+vContent.reply_to.email						= "me@email.com"
+vContent.reply_to.name						= "My Reply To Name"
+
+vContent.from.name							= "Sent on behalf of "+ vContent.reply_to.name +" ("+ vContent.reply_to.email +")"
+
+vContent.subject							= "Hello from Test App!"
+
+vContent.content[1].type					= "text/html"
+vContent.content[1].value					= "<p>Hello from Test App!</p><p>Sending with this email via the <strong>Twilio SendGrid</strong> email service trusted by developers and marketers for <strong>time-savings</strong>, <strong>scalability</strong>, and <strong>delivery expertise</strong>.</p><p>%open-track%</p>"
+
+FilePath is string = "C:\_Exports"
+FileName is string = "Test.zip"
+Fullfile is string = CompleteDir(FilePath) + FileName
+
+//	Encode Attachment
+myBuffer is Buffer
+myBuffer = fLoadText(Fullfile)
+myString is string
+myString = Encode(myBuffer,encodeBASE64NoCR)
+
+FNdx is int = 1
+vContent.attachments[FNdx].content		= myString
+
+//vContent.attachments[FNdx].type		= "text/html"	
+//vContent.attachments[FNdx].type		= "text/plain"	
+vContent.attachments[FNdx].Type			= "application/zip"	
+
+vContent.attachments[FNdx].filename		= FileName
+vContent.attachments[FNdx].disposition	= "attachment"
+
+
+vContent.categories[FNdx] = "WinDevTestApp"					//	We need to track what product sent this email.
+vContent.categories[2] = "[%vContent.reply_to.email%]"		//	We need to track who sent this email.  IF there is an issue, we should be able to email them.
+
+
+//vContent.sent_at = ""
+
+//vContent.batch_id = GetGUID(guidFormatted)
+
+//	vContent.ip_pool_name = "transactional email"
+
+vContent.mail_settings.bypass_list_management.enable = False
+vContent.mail_settings.footer.enable = False
+vContent.mail_settings.sandbox_mode.enable = False
+
+vContent.tracking_settings.click_tracking.enable = True
+vContent.tracking_settings.click_tracking.enable_text = False
+vContent.tracking_settings.open_tracking.enable = True
+vContent.tracking_settings.open_tracking.substitution_tag = "%open-track%"
+vContent.tracking_settings.subscription_tracking.enable = False
+
+ReqBuf	is Buffer	= VariantToJSON(vContent)
+
+Req		is httpRequest
+Req..URL						= "https://sendgrid.com/v3/mail/send"
+Req..ContentType				= "application/json"
+Req..Content					= ReqBuf
+Req..Method						= httpPost
+Req..User						= "apikey"
+Req..Header["Authorization"]	= "Bearer "+ apikey
+
+LogIT("SendGrid API - URL: "+ Req..URL)
+
+Resp is httpResponse = HTTPSend(Req)
+
+IF ErrorOccurred THEN
+	ErrTxt = ErrorInfo(errFullDetails)
+	LogIT("Error: "+ ErrTxt)
+ELSE
+	IF Resp.StatusCode = 202 THEN
+		LogIT("Email Sent!")
+	ELSE
+		ErrTxt = "Error: "+ Resp.StatusCode
+		LogIT(ErrTxt)		
+		ErrTxt = "Error: "+ Resp.DescriptionStatusCode
+		LogIT(ErrTxt)		
+		ErrTxt = "Error: "+ Resp.RoughHeader
+		LogIT(ErrTxt)		
+		ErrTxt = "Error: "+ Resp.Content
+		LogIT(ErrTxt)
+	END
+	
+END
